@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRF: Zero Hit - Reto Extremo</title>
+    <style>
+        :root {
+            --bg-color: #05050a;
+            --neon-pink: #ff0055;
+            --neon-cyan: #00f3ff;
+            --neon-yellow: #f3e600;
+            --text-color: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 800px;
+            background: radial-gradient(circle at center, #101026 0%, #020205 100%);
+            border: 2px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+            cursor: crosshair;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 900;
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        .hud-score {
+            font-size: 1.8rem;
+            color: var(--neon-cyan);
+        }
+
+        .hud-multiplier {
+            background: rgba(255, 0, 85, 0.2);
+            border: 1px solid var(--neon-pink);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: var(--neon-pink);
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 10, 0.94);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            text-align: center;
+            pointer-events: auto;
+            z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            display: none;
+        }
+
+        h1 {
+            font-size: 2.3rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        p {
+            font-size: 0.95rem;
+            color: #a0a0c0;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, var(--neon-cyan), #0077ff);
+            color: #000;
+            font-weight: 900;
+            font-size: 1.05rem;
+            padding: 14px 30px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+            transition: all 0.2s ease;
+            margin-top: 10px;
+            pointer-events: auto;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px var(--neon-cyan);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--neon-pink);
+            color: var(--neon-pink);
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
+            margin-top: 15px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 0, 85, 0.1);
+            box-shadow: 0 0 25px var(--neon-pink);
+        }
+
+        .scorecard {
+            background: rgba(25, 25, 45, 0.9);
+            border: 2px dashed var(--neon-yellow);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .scorecard-title {
+            font-size: 0.75rem;
+            color: var(--neon-yellow);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .scorecard-score {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        .hash-tag {
+            color: var(--neon-cyan);
+            font-size: 0.8rem;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        .controls-hint {
+            font-size: 0.75rem;
+            color: #606080;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-layer">
+        <div class="hud-top">
+            <div>PUNTOS: <span id="currentScore" class="hud-score">0</span></div>
+            <div id="multiplierBadge" class="hud-multiplier hidden">1.0x</div>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE INICIO -->
+    <div id="startScreen" class="screen">
+        <h1>CRF: ZERO HIT</h1>
+        <p>Mantén pulsado y arrastra para mover tu núcleo. Esquiva las fallas rojas, absorbe los orbes amarillos y sobrevive al caos creciente.</p>
+        <button class="btn" id="startBtn">JUGAR AHORA</button>
+        <div class="controls-hint">⚡ Táctil o Ratón compatible</div>
+    </div>
+
+    <!-- PANTALLA DE GAME OVER -->
+    <div id="gameOverScreen" class="screen hidden">
+        <h1>¡COLISIÓN FATAL!</h1>
+        <p>El vacío te ha devorado. ¿Crees que tus seguidores pueden superarte?</p>
+        
+        <div class="scorecard">
+            <div class="scorecard-title">Puntuación Certificada</div>
+            <div class="scorecard-score" id="finalScoreText">0</div>
+            <div class="hash-tag">#CRF:ZeroHitChallenge</div>
+        </div>
+
+        <button class="btn" id="restartBtn">VOLVER A INTENTAR</button>
+        <button class="btn btn-secondary" id="copyShareBtn">📋 COPIAR RETO PARA COMENTARIOS</button>
+        <div class="controls-hint">📸 Haz captura de pantalla con tu score y pégala en comentarios.</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let gameState = 'START';
+    let score = 0;
+    let multiplier = 1;
+    let gameTime = 0;
+    let difficultyMultiplier = 1;
+
+    const player = {
+        x: 0,
+        y: 0,
+        radius: 14,
+        targetX: 0,
+        targetY: 0,
+        trail: []
+    };
+
+    let obstacles = [];
+    let particles = [];
+    let powerOrbs = [];
+    let isPointerDown = false;
+
+    function handlePointerMove(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        player.targetX = (clientX - rect.left) * (canvas.width / rect.width);
+        player.targetY = (clientY - rect.top) * (canvas.height / rect.height);
+    }
+
+    window.addEventListener('mousedown', (e) => { isPointerDown = true; handlePointerMove(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', (e) => { if (isPointerDown) handlePointerMove(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', () => { isPointerDown = false; });
+
+    canvas.addEventListener('touchstart', (e) => { 
+        isPointerDown = true; 
+        if(e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY); 
+        e.preventDefault();
+    }, {passive: false});
+
+    canvas.addEventListener('touchmove', (e) => { 
+        if (isPointerDown && e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY); 
+        e.preventDefault();
+    }, {passive: false});
+
+    canvas.addEventListener('touchend', () => { isPointerDown = false; });
+
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('restartBtn').addEventListener('click', startGame);
+
+    document.getElementById('copyShareBtn').addEventListener('click', () => {
+        const textToCopy = `🔥 ¡Acabo de hacer ${Math.floor(score)} PUNTOS en CRF: Zero Hit! ¿Hay algún Dios de los juegazos en los comentarios capaz de superarme? Haz captura de tu score y demuéstralo. 🚀🎮`;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const btn = document.getElementById('copyShareBtn');
+            btn.innerText = "¡COPIADO AL PORTAPAPELES! 📋✨";
+            setTimeout(() => { btn.innerText = "📋 COPIAR RETO PARA COMENTARIOS"; }, 2500);
+        });
+    });
+
+    function startGame() {
+        score = 0;
+        multiplier = 1;
+        gameTime = 0;
+        difficultyMultiplier = 1;
+        obstacles = [];
+        particles = [];
+        powerOrbs = [];
+        
+        player.x = canvas.width / 2;
+        player.y = canvas.height - 200;
+        player.targetX = player.x;
+        player.targetY = player.y;
+
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        document.getElementById('multiplierBadge').classList.remove('hidden');
+        
+        gameState = 'PLAYING';
+    }
+
+    function spawnEntities() {
+        if (Math.random() < 0.04 + (gameTime * 0.00005)) {
+            const size = (Math.random() * 25 + 15) * window.devicePixelRatio;
+            obstacles.push({
+                x: Math.random() * canvas.width,
+                y: -50,
+                vx: (Math.random() - 0.5) * 3 * difficultyMultiplier,
+                vy: (Math.random() * 2 + 2.5) * difficultyMultiplier,
+                size: size,
+                rotation: 0,
+                vRot: (Math.random() - 0.5) * 0.1
+            });
+        }
+
+        if (Math.random() < 0.015) {
+            powerOrbs.push({
+                x: Math.random() * (canvas.width - 80) + 40,
+                y: -30,
+                vy: (Math.random() * 1.5 + 1.5) * window.devicePixelRatio,
+                radius: 12 * window.devicePixelRatio,
+                pulse: 0
+            });
+        }
+    }
+
+    function createExplosion(x, y, color) {
+        for (let i = 0; i < 25; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = (Math.random() * 6 + 2) * window.devicePixelRatio;
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                alpha: 1,
+                decay: Math.random() * 0.03 + 0.02,
+                color: color,
+                size: (Math.random() * 4 + 2) * window.devicePixelRatio
+            });
+        }
+    }
+
+    function update() {
+        if (gameState !== 'PLAYING') return;
+
+        gameTime++;
+        difficultyMultiplier = 1 + (gameTime / 500);
+        score += 0.1 * multiplier * difficultyMultiplier;
+
+        document.getElementById('currentScore').innerText = Math.floor(score);
+        document.getElementById('multiplierBadge').innerText = multiplier.toFixed(1) + 'x';
+
+        player.x += (player.targetX - player.x) * 0.2;
+        player.y += (player.targetY - player.y) * 0.2;
+
+        const scaledRadius = player.radius * window.devicePixelRatio;
+        player.x = Math.max(scaledRadius, Math.min(canvas.width - scaledRadius, player.x));
+        player.y = Math.max(scaledRadius, Math.min(canvas.height - scaledRadius, player.y));
+
+        player.trail.push({x: player.x, y: player.y});
+        if (player.trail.length > 12) player.trail.shift();
+
+        spawnEntities();
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
+            obs.x += obs.vx * window.devicePixelRatio;
+            obs.y += obs.vy * window.devicePixelRatio;
+            obs.rotation += obs.vRot;
+
+            const dx = player.x - obs.x;
+            const dy = player.y - obs.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < scaledRadius + (obs.size * 0.7)) {
+                createExplosion(player.x, player.y, '#ff0055');
+                triggerGameOver();
+                return;
+            }
+
+            if (obs.y > canvas.height + 60) {
+                obstacles.splice(i, 1);
+            }
+        }
+
+        for (let i = powerOrbs.length - 1; i >= 0; i--) {
+            let orb = powerOrbs[i];
+            orb.y += orb.vy;
+            orb.pulse += 0.1;
+
+            const dx = player.x - orb.x;
+            const dy = player.y - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < scaledRadius + orb.radius + 5) {
+                multiplier = Math.min(5.0, multiplier + 0.2);
+                score += 50 * multiplier;
+                createExplosion(orb.x, orb.y, '#00f3ff');
+                powerOrbs.splice(i, 1);
+                continue;
+            }
+
+            if (orb.y > canvas.height + 30) {
+                powerOrbs.splice(i, 1);
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.alpha -= p.decay;
+            if (p.alpha <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function triggerGameOver() {
+        gameState = 'GAMEOVER';
+        document.getElementById('finalScoreText').innerText = Math.floor(score);
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        document.getElementById('multiplierBadge').classList.add('hidden');
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Fondo de grilla
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.04)';
+        ctx.lineWidth = 1;
+        const gridSize = 40 * window.devicePixelRatio;
+        const offset = (gameTime * 2) % gridSize;
+        
+        ctx.beginPath();
+        for (let x = 0; x <= canvas.width; x += gridSize) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+        }
+        for (let y = offset; y <= canvas.height; y += gridSize) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+        }
+        ctx.stroke();
+
+        // Estela
+        const scaledRadius = player.radius * window.devicePixelRatio;
+        for (let i = 0; i < player.trail.length; i++) {
+            let t = player.trail[i];
+            let ratio = i / player.trail.length;
+            ctx.fillStyle = `rgba(0, 243, 255, ${ratio * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, scaledRadius * ratio, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Jugador
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00f3ff';
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, scaledRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 3 * window.devicePixelRatio;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, scaledRadius + (4 * window.devicePixelRatio), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Obstáculos
+        for (let obs of obstacles) {
+            ctx.save();
+            ctx.translate(obs.x, obs.y);
+            ctx.rotate(obs.rotation);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff0055';
+            ctx.strokeStyle = '#ff0055';
+            ctx.fillStyle = 'rgba(255, 0, 85, 0.15)';
+            ctx.lineWidth = 2 * window.devicePixelRatio;
+
+            ctx.beginPath();
+            for (let i = 0; i < 4; i++) {
+                const angle = (i * Math.PI * 2) / 4;
+                const px = Math.cos(angle) * obs.size;
+                const py = Math.sin(angle) * obs.size;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Orbes
+        for (let orb of powerOrbs) {
+            ctx.save();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00f3ff';
+            ctx.fillStyle = '#f3e600';
+            ctx.beginPath();
+            const currentRadius = orb.radius + Math.sin(orb.pulse) * 2;
+            ctx.arc(orb.x, orb.y, currentRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Partículas
+        for (let p of particles) {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
